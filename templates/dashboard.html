@@ -78,7 +78,6 @@
 <div class="row">
     <!-- Columna Izquierda: Gráficos y Mapa -->
     <div class="col-lg-9">
-
         <div class="row mb-4">
             <div class="col-md-6 mb-3">
                 <div class="card h-100">
@@ -96,7 +95,6 @@
                         <i class="fas fa-map-marked-alt me-2 text-warning"></i> Mapa Maestro
                     </div>
                     <div class="card-body p-0">
-                        <!-- Mapa incrustado -->
                         <div class="ratio ratio-1x1" style="max-height: 400px;">
                             {{ map_html|safe }}
                         </div>
@@ -104,12 +102,10 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <!-- Columna Derecha: Sidebar (Asistente & Carga Rápida) -->
     <div class="col-lg-3">
-
         <!-- Asistente AI -->
         <div class="card mb-4">
             <div class="card-header bg-transparent fw-bold border-0">
@@ -166,7 +162,6 @@
                 </form>
             </div>
         </div>
-
     </div>
 </div>
 {% endblock %}
@@ -197,7 +192,7 @@
             if (capInput) capInput.value = userCapital;
             if (rateInput) rateInput.value = userRate;
 
-            // Logica Offline (Cálculo de ganancia mientras estaba cerrado)
+            // Logica Offline
             if (data.timestamp) {
                 const savedTime = new Date(data.timestamp);
                 const now = new Date();
@@ -238,13 +233,11 @@
 
             if (res.ok) {
                 console.log("Guardado exitoso.");
-                // Actualizar estado local
                 userCapital = capInput;
                 userRate = rateInput;
-                accumulated = 0; // Resetear acumulado
+                accumulated = 0;
                 updateDisplay();
 
-                // Cerrar modal
                 const modalElement = document.getElementById('financialConfigModal');
                 if (modalElement) {
                     const modal = bootstrap.Modal.getInstance(modalElement);
@@ -286,7 +279,7 @@
 
         // Iniciar Chart.js
         try {
-            const ctx = document.getElementById('ratesChart').getContext('2d');
+            const ctx = document.getElementById('ratesChart')?.getContext('2d');
             if (ctx) {
                 new Chart(ctx, {
                     type: 'bar',
