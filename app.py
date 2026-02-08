@@ -36,8 +36,11 @@ def login():
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form['username'].strip()
+        password = request.form['password'].strip()
+        
+        # Log para depuración en Render (Ver pestaña Logs)
+        print(f"Login Attempt -> Input: '{username}' | Expected: '{ADMIN_USER}'")
         
         if username == ADMIN_USER and password == ADMIN_PASS:
             user = User(username)
