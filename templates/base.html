@@ -30,6 +30,12 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#"><i class="fas fa-cogs me-1"></i> Config</a>
                     </li>
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="{{ url_for('logout') }}"><i
+                                class="fas fa-sign-out-alt me-1"></i> Salir</a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

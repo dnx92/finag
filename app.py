@@ -1,13 +1,61 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
 import pandas as pd
 from data_manager import DataManager
 import utils
 import folium
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+import os
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key_123") # Cambiar en producción
+
+# Configuración de Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Usuarios (Simulado con variables de entorno)
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
+
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id == ADMIN_USER:
+        return User(user_id)
+    return None
+
 dm = DataManager()
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        if username == ADMIN_USER and password == ADMIN_PASS:
+            user = User(username)
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Usuario o contraseña incorrectos.')
+            
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def dashboard():
     # Cargar Datos
     finanzas_df = dm.get_data("Finanzas")
