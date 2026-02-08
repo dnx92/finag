@@ -74,6 +74,7 @@ def financial_config():
     
     if request.method == 'POST':
         data = request.json
+        print(f"📥 POST /api/financial-config received: {data}") # DEBUG LOG
         capital = data.get('capital', 0)
         rate = data.get('rate', 0)
         

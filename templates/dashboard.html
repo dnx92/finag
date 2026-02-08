@@ -169,23 +169,130 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        console.log("Dashboard Loaded");
+    // --- VARIABLES GLOBALES ---
+    let userCapital = 0;
+    let userRate = 0;
+    let accumulated = 0;
 
-        // --- CHART.JS ---
+    // --- FUNCIONES (Global Scope) ---
+    async function loadConfig() {
+        console.log("Cargando configuración...");
+        try {
+            const res = await fetch('/api/financial-config');
+            if (!res.ok) throw new Error("Error fetching config");
+            const data = await res.json();
+
+            userCapital = parseFloat(data.capital) || 0;
+            userRate = parseFloat(data.rate) || 0;
+
+            // Llenar inputs del modal
+            const capInput = document.getElementById('inputCapital');
+            const rateInput = document.getElementById('inputRate');
+            if (capInput) capInput.value = userCapital;
+            if (rateInput) rateInput.value = userRate;
+
+            // Logica Offline (Cálculo de ganancia mientras estaba cerrado)
+            if (data.timestamp) {
+                const savedTime = new Date(data.timestamp);
+                const now = new Date();
+                const secondsPassed = (now - savedTime) / 1000;
+                if (secondsPassed > 0 && userCapital > 0) {
+                    const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
+                    accumulated = profitPerSecond * secondsPassed;
+                    console.log(`Ganancia Offline (${secondsPassed.toFixed(0)}s): $${accumulated.toFixed(2)}`);
+                }
+            }
+            updateDisplay();
+        } catch (e) {
+            console.error("Error loading config:", e);
+        }
+    }
+
+    async function saveFinancialConfig() {
+        console.log("Boton Guardar presionado.");
+        const btn = document.querySelector('#financialConfigModal .btn-success');
+        let originalText = "Guardar";
+
+        if (btn) {
+            originalText = btn.innerText;
+            btn.innerText = "Guardando...";
+            btn.disabled = true;
+        }
+
+        const capInput = parseFloat(document.getElementById('inputCapital').value) || 0;
+        const rateInput = parseFloat(document.getElementById('inputRate').value) || 0;
+
+        try {
+            console.log("Enviando datos:", { capital: capInput, rate: rateInput });
+            const res = await fetch('/api/financial-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ capital: capInput, rate: rateInput })
+            });
+
+            if (res.ok) {
+                console.log("Guardado exitoso.");
+                // Actualizar estado local
+                userCapital = capInput;
+                userRate = rateInput;
+                accumulated = 0; // Resetear acumulado
+                updateDisplay();
+
+                // Cerrar modal
+                const modalElement = document.getElementById('financialConfigModal');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
+
+                alert("✅ Configuración guardada correctamente.");
+            } else {
+                const errText = await res.text();
+                console.error("Error servidor:", errText);
+                alert("❌ Error del servidor: " + errText);
+            }
+        } catch (e) {
+            console.error("Excepción al guardar:", e);
+            alert("❌ Error de conexión: " + e.message);
+        } finally {
+            if (btn) {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    }
+
+    function updateDisplay() {
+        const dailyProfit = (userCapital * (userRate / 100)) / 365;
+        const dailyDisplay = document.getElementById('dailyProfitDisplay');
+        const capitalDisplay = document.getElementById('totalCapitalDisplay');
+
+        if (dailyDisplay) dailyDisplay.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
+        if (capitalDisplay) capitalDisplay.innerText = "$" + Math.floor(userCapital).toLocaleString();
+    }
+
+    // --- INICIALIZACIÓN ---
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("Dashboard Inicializando...");
+
+        // Iniciar Datos
+        loadConfig();
+
+        // Iniciar Chart.js
         try {
             const ctx = document.getElementById('ratesChart').getContext('2d');
-            const myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: {{ chart_data.labels | safe }},
-        datasets: [{
-            label: 'Tasa Annual (TNA)',
-            data: {{ chart_data.values | safe }},
-        backgroundColor: {{ chart_data.colors | safe }},
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: {{ chart_data.labels | safe }},
+            datasets: [{
+                label: 'Tasa Annual (TNA)',
+                data: {{ chart_data.values | safe }},
+        backgroundColor: { { chart_data.colors | safe } },
         borderWidth: 0
-                }]
-            },
+    }]
+                    },
         options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -195,109 +302,27 @@
             x: { grid: { display: false } }
         }
     }
-        });
-    } catch (e) {
+                });
+            }
+        } catch (e) {
         console.error("Error iniciando Chart.js:", e);
     }
 
-    // --- LOGICA LATIDO FINANCIERO ---
-    // Definimos variables globales
-    window.userCapital = 0;
-    window.userRate = 0;
-    window.accumulated = 0;
-
-    // Función Global para guardar (necesaria para el onclick del HTML)
-    window.saveFinancialConfig = async function () {
-        console.log("Intentando guardar...");
-        const btn = document.querySelector('#financialConfigModal .btn-success');
-        const originalText = btn.innerText;
-        btn.innerText = "Guardando...";
-        btn.disabled = true;
-
-        const capInput = parseFloat(document.getElementById('inputCapital').value) || 0;
-        const rateInput = parseFloat(document.getElementById('inputRate').value) || 0;
-
-        try {
-            const res = await fetch('/api/financial-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ capital: capInput, rate: rateInput })
-            });
-
-            if (res.ok) {
-                // Actualizar estado local
-                window.userCapital = capInput;
-                window.userRate = rateInput;
-                window.accumulated = 0;
-                updateDisplay();
-
-                // Cerrar modal
-                const modalElement = document.getElementById('financialConfigModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                modal.hide();
-
-                alert("✅ Configuración guardada correctamente.");
-            } else {
-                const errText = await res.text();
-                alert("❌ Error del servidor: " + errText); // Mostrar error real del servidor
-            }
-        } catch (e) {
-            console.error(e);
-            alert("❌ Error de conexión: " + e.message);
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
-    };
-
-    async function loadConfig() {
-        try {
-            const res = await fetch('/api/financial-config');
-            if (!res.ok) throw new Error("Error fetching config");
-            const data = await res.json();
-
-            window.userCapital = parseFloat(data.capital) || 0;
-            window.userRate = parseFloat(data.rate) || 0;
-
-            // Llenar inputs
-            document.getElementById('inputCapital').value = window.userCapital;
-            document.getElementById('inputRate').value = window.userRate;
-
-            // Logica Offline
-            const savedTime = new Date(data.timestamp);
-            const now = new Date();
-            const secondsPassed = (now - savedTime) / 1000;
-            if (secondsPassed > 0 && window.userCapital > 0) {
-                const profitPerSecond = (window.userCapital * (window.userRate / 100)) / 31536000;
-                window.accumulated = profitPerSecond * secondsPassed;
-            }
-            updateDisplay();
-        } catch (e) {
-            console.error("Error loading config:", e);
-        }
-    }
-
-    function updateDisplay() {
-        const dailyProfit = (window.userCapital * (window.userRate / 100)) / 365;
-        document.getElementById('dailyProfitDisplay').innerText = "$" + Math.floor(dailyProfit).toLocaleString();
-        document.getElementById('totalCapitalDisplay').innerText = "$" + Math.floor(window.userCapital).toLocaleString();
-    }
-
-    // Ticker Loop
+    // Iniciar Ticker Loop (10 FPS)
     setInterval(() => {
-        if (window.userCapital > 0 && window.userRate > 0) {
-            const profitPerSecond = (window.userCapital * (window.userRate / 100)) / 31536000;
-            document.getElementById('pesosPerSecondDisplay').innerText = "$" + profitPerSecond.toFixed(4);
+        if (userCapital > 0 && userRate > 0) {
+            const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
+            const tickerDisplay = document.getElementById('pesosPerSecondDisplay');
+            const accDisplay = document.getElementById('accumulatedDisplay');
 
-            window.accumulated += profitPerSecond / 10;
-            if (window.accumulated > 0.01) {
-                document.getElementById('accumulatedDisplay').innerText = "+$" + window.accumulated.toFixed(2) + " sesión";
+            if (tickerDisplay) tickerDisplay.innerText = "$" + profitPerSecond.toFixed(4);
+
+            accumulated += profitPerSecond / 10;
+            if (accDisplay && accumulated > 0.01) {
+                accDisplay.innerText = "+$" + accumulated.toFixed(2) + " sesión";
             }
         }
     }, 100);
-
-    // Iniciar
-    loadConfig();
-});
+    });
 </script>
 {% endblock %}
