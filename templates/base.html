@@ -18,6 +18,11 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4 border-bottom border-success"
         style="--bs-bg-opacity: .2;">
         <div class="container-fluid">
+            <!-- Botón Sidebar -->
+            <button class="btn btn-outline-success me-3" type="button" data-bs-toggle="offcanvas"
+                data-bs-target="#financialSidebar">
+                <i class="fas fa-bars"></i>
+            </button>
             <a class="navbar-brand fw-bold text-success" href="#"><i class="fas fa-seedling me-2"></i>AgroFinance</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -40,6 +45,67 @@
             </div>
         </div>
     </nav>
+
+    <!-- Sidebar Financiero -->
+    <div class="offcanvas offcanvas-start bg-dark text-light" tabindex="-1" id="financialSidebar">
+        <div class="offcanvas-header border-bottom border-secondary">
+            <h5 class="offcanvas-title text-success"><i class="fas fa-chart-line me-2"></i>Mercado</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <!-- Tasas -->
+            <h6 class="text-secondary text-uppercase mb-3 small fw-bold">Tasas & Referencias</h6>
+            <div class="row g-2 mb-4">
+                <div class="col-6">
+                    <div class="card bg-secondary border-0 text-center p-2 h-100" style="--bs-bg-opacity: .2;">
+                        <small class="d-block text-muted" style="font-size:0.7rem;">{{ indicators.tna_pf.nombre
+                            }}</small>
+                        <span class="fw-bold text-light">{{ indicators.tna_pf.valor }}</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card bg-secondary border-0 text-center p-2 h-100" style="--bs-bg-opacity: .2;">
+                        <small class="d-block text-muted" style="font-size:0.7rem;">{{ indicators.badlar.nombre
+                            }}</small>
+                        <span class="fw-bold text-light">{{ indicators.badlar.valor }}</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card bg-secondary border-0 text-center p-2 h-100" style="--bs-bg-opacity: .2;">
+                        <small class="d-block text-muted" style="font-size:0.7rem;">{{ indicators.caucion.nombre
+                            }}</small>
+                        <span class="fw-bold text-light">{{ indicators.caucion.valor }}</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card bg-secondary border-0 text-center p-2 h-100" style="--bs-bg-opacity: .2;">
+                        <small class="d-block text-muted" style="font-size:0.7rem;">{{ indicators.tamar.nombre
+                            }}</small>
+                        <span class="fw-bold text-light">{{ indicators.tamar.valor }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coeficientes -->
+            <h6 class="text-secondary text-uppercase mb-3 small fw-bold">Coeficientes</h6>
+            <ul class="list-group list-group-flush">
+                <li
+                    class="list-group-item bg-transparent text-light border-secondary d-flex justify-content-between px-0">
+                    <span><i class="fas fa-fire me-2 text-danger"></i>{{ indicators.cer.nombre }}</span>
+                    <span class="fw-bold">{{ indicators.cer.valor }}</span>
+                </li>
+                <li
+                    class="list-group-item bg-transparent text-light border-secondary d-flex justify-content-between px-0">
+                    <span><i class="fas fa-percentage me-2 text-warning"></i>{{ indicators.uva.nombre }}</span>
+                    <span class="fw-bold">{{ indicators.uva.valor }}</span>
+                </li>
+            </ul>
+
+            <div class="mt-4 text-center small text-muted">
+                Actualizado: {{ indicators.tna_pf.fecha }}
+            </div>
+        </div>
+    </div>
 
     <div class="container-fluid px-4">
         {% block content %}{% endblock %}

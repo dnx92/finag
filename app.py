@@ -55,6 +55,15 @@ def load_user(user_id):
 
 dm = DataManager()
 
+# Context Processor para datos globales (Sidebar)
+@app.context_processor
+def inject_market_data():
+    try:
+        indicators = MarketData.get_economic_indicators()
+    except:
+        indicators = {}
+    return dict(indicators=indicators)
+
 @app.route('/login')
 def login():
     return auth0.authorize_redirect(redirect_uri=url_for('callback', _external=True))
