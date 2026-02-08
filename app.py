@@ -84,6 +84,17 @@ def financial_config():
         else:
             return jsonify({"status": "error"}), 500
 
+@app.route('/debug-sheets')
+@login_required
+def debug_sheets():
+    status = dm.get_status()
+    # Forzamos re-intentar conexión si está fallando, para ver el error fresco
+    if status['use_mock']:
+        dm._authenticate()
+        status = dm.get_status()
+    
+    return jsonify(status)
+
 @app.route('/login')
 def login():
     return auth0.authorize_redirect(redirect_uri=url_for('callback', _external=True))

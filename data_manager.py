@@ -14,6 +14,7 @@ class DataManager:
         self.client = None
         self.sheet = None
         self.use_mock = True
+        self.last_error = None
         
         self._authenticate()
 
@@ -26,6 +27,7 @@ class DataManager:
                 self._connect_sheet()
                 return
             except Exception as e:
+                self.last_error = f"Local Auth Error: {str(e)}"
                 print(f"❌ Error Auth Archivo Local: {e}")
 
         # 2. Intentar Variable de Entorno (Render/Prod)
@@ -38,7 +40,10 @@ class DataManager:
                 self._connect_sheet()
                 return
             except Exception as e:
+                self.last_error = f"Env Var Auth Error: {str(e)}"
                 print(f"❌ Error Auth Env Var: {e}")
+        else:
+             self.last_error = "No GOOGLE_CREDENTIALS_JSON found in Environment."
 
         print("ℹ️ No se encontraron credenciales válidas. Usando MOCK DATA.")
         self.use_mock = True
@@ -47,10 +52,20 @@ class DataManager:
         try:
             self.sheet = self.client.open(self.sheet_name)
             self.use_mock = False
+            self.last_error = "Connected OK"
             print(f"✅ Conectado exitosamente a Google Sheet: {self.sheet_name}")
         except Exception as e:
+            self.last_error = f"Sheet Open Error: {str(e)}"
             print(f"⚠️ Error al abrir la hoja '{self.sheet_name}': {e}")
             self.use_mock = True
+
+    def get_status(self):
+        return {
+            "use_mock": self.use_mock,
+            "last_error": self.last_error,
+            "sheet_name": self.sheet_name,
+            "env_var_present": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON"))
+        }
 
     @cachetools.func.ttl_cache(maxsize=10, ttl=60)
     def get_data(self, sheet_tab):
