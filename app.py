@@ -77,7 +77,8 @@ def financial_config():
         capital = data.get('capital', 0)
         rate = data.get('rate', 0)
         
-        success = dm.save_user_config(current_user.id, capital, rate)
+        # Pasamos el email también para que sea legible en el Sheet
+        success = dm.save_user_config(current_user.id, current_user.email, capital, rate)
         if success:
             return jsonify({"status": "success"})
         else:
