@@ -7,3 +7,5 @@ python-dotenv
 openai
 gunicorn
 Flask-Login
+authlib
+requests

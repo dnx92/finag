@@ -26,67 +26,37 @@
             padding: 2rem;
         }
 
-        .form-control {
-            background-color: #0E1117;
-            border: 1px solid #444;
-            color: #FAFAFA;
-        }
-
-        .form-control:focus {
-            background-color: #0E1117;
-            border-color: #00FF00;
-            color: #FAFAFA;
-            box-shadow: 0 0 0 0.25rem rgba(0, 255, 0, 0.25);
-        }
-
-        .btn-login {
-            background-color: #00FF00;
-            color: #000;
+        .btn-auth0 {
+            background-color: #EB5424;
+            color: white;
             font-weight: bold;
             border: none;
         }
 
-        .btn-login:hover {
-            background-color: #00cc00;
+        .btn-auth0:hover {
+            background-color: #c7451c;
+            color: white;
         }
     </style>
 </head>
 
 <body>
-    <div class="login-card">
-        <div class="text-center mb-4">
-            <i class="fas fa-seedling fa-3x text-success mb-3"></i>
-            <h3 class="text-light">AgroFinance</h3>
-            <p class="text-secondary">Acceso Seguro</p>
+    <div class="login-card text-center">
+        <div class="mb-5">
+            <i class="fas fa-seedling fa-4x text-success mb-3"></i>
+            <h2 class="text-light fw-bold">AgroFinance</h2>
+            <p class="text-secondary">Plataforma de Gestión</p>
         </div>
 
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-        <div class="alert alert-danger py-2 text-center" role="alert">
-            {{ messages[0] }}
-        </div>
-        {% endif %}
-        {% endwith %}
+        <p class="text-light mb-4">Inicia sesión con tu cuenta segura para acceder al dashboard.</p>
 
-        <form method="POST">
-            <div class="mb-3">
-                <label for="username" class="form-label text-light">Usuario</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark border-secondary text-secondary"><i
-                            class="fas fa-user"></i></span>
-                    <input type="text" class="form-control" id="username" name="username" required>
-                </div>
-            </div>
-            <div class="mb-4">
-                <label for="password" class="form-label text-light">Contraseña</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark border-secondary text-secondary"><i
-                            class="fas fa-lock"></i></span>
-                    <input type="password" class="form-control" id="password" name="password" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-login w-100 py-2">Ingresar</button>
-        </form>
+        <a href="{{ url_for('login') }}" class="btn btn-auth0 w-100 py-3 mb-3">
+            <i class="fas fa-shield-alt me-2"></i> Ingresar con Auth0
+        </a>
+
+        <div class="mt-3">
+            <small class="text-muted">Protegido por Auth0 &copy;</small>
+        </div>
     </div>
 </body>
 

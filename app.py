@@ -1,61 +1,97 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
 import pandas as pd
 from data_manager import DataManager
 import utils
 import folium
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from authlib.integrations.flask_client import OAuth
+from urllib.parse import urlencode
 import os
+import json
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key_123") # Cambiar en producción
+# Necesario para sesiones Flask
+app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key_123")
 
-# Configuración de Login
+# --- LOGIN SETUP (Auth0) ---
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'login_page'
 
-# Usuarios (Simulado con variables de entorno)
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
+oauth = OAuth(app)
+auth0 = oauth.register(
+    'auth0',
+    client_id=os.environ.get("AUTH0_CLIENT_ID"),
+    client_secret=os.environ.get("AUTH0_CLIENT_SECRET"),
+    api_base_url=f'https://{os.environ.get("AUTH0_DOMAIN")}',
+    access_token_url=f'https://{os.environ.get("AUTH0_DOMAIN")}/oauth/token',
+    authorize_url=f'https://{os.environ.get("AUTH0_DOMAIN")}/authorize',
+    client_kwargs={
+        'scope': 'openid profile email',
+    },
+    server_metadata_url=f'https://{os.environ.get("AUTH0_DOMAIN")}/.well-known/openid-configuration'
+)
 
 class User(UserMixin):
-    def __init__(self, id):
-        self.id = id
+    def __init__(self, user_id, name="Usuario", email=""):
+        self.id = user_id
+        self.name = name
+        self.email = email
 
 @login_manager.user_loader
 def load_user(user_id):
-    if user_id == ADMIN_USER:
-        return User(user_id)
-    return None
+    # En un sistema real esto vendría de DB. 
+    # Aquí recuperamos info básica de la sesión si existe, o creamos usuario genérico.
+    user_info = session.get('user_info')
+    if user_info and user_info.get('sub') == user_id:
+        return User(user_info['sub'], user_info.get('name'), user_info.get('email'))
+    return User(user_id)
 
 dm = DataManager()
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login')
 def login():
+    return auth0.authorize_redirect(redirect_uri=url_for('callback', _external=True))
+
+@app.route('/callback')
+def callback():
+    try:
+        # Auth0 devuelve el token
+        auth0.authorize_access_token()
+        resp = auth0.get('userinfo')
+        user_info = resp.json()
+        
+        # Guardar en sesión
+        session['user_info'] = user_info
+        
+        # Loguear en Flask
+        user = User(user_info['sub'], user_info.get('name'), user_info.get('email'))
+        login_user(user)
+        
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        return f"Error en login: {str(e)}"
+
+@app.route('/login_page')
+def login_page():
+    # Página intermedia con el botón
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password'].strip()
-        
-        # Log para depuración en Render (Ver pestaña Logs)
-        print(f"Login Attempt -> Input: '{username}' | Expected: '{ADMIN_USER}'")
-        
-        if username == ADMIN_USER and password == ADMIN_PASS:
-            user = User(username)
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Usuario o contraseña incorrectos.')
-            
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    session.clear()
+    
+    # Redirigir a logout de Auth0
+    params = {
+        'returnTo': url_for('login_page', _external=True),
+        'client_id': os.environ.get("AUTH0_CLIENT_ID")
+    }
+    return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
+
 
 @app.route('/')
 @login_required
