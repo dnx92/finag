@@ -60,11 +60,20 @@ class DataManager:
             self.use_mock = True
 
     def get_status(self):
+        usuarios_status = "Unknown"
+        if not self.use_mock and self.sheet:
+            try:
+                self.sheet.worksheet("Usuarios")
+                usuarios_status = "Found ✅"
+            except Exception as e:
+                usuarios_status = f"Missing/Error ❌: {str(e)}"
+
         return {
             "use_mock": self.use_mock,
             "last_error": self.last_error,
             "sheet_name": self.sheet_name,
-            "env_var_present": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON"))
+            "env_var_present": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON")),
+            "usuarios_tab": usuarios_status
         }
 
     @cachetools.func.ttl_cache(maxsize=10, ttl=60)
