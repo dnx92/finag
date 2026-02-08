@@ -235,26 +235,40 @@
     }
 
     async function saveFinancialConfig() {
+        const btn = document.querySelector('#financialConfigModal .btn-success');
+        const originalText = btn.innerText;
+        btn.innerText = "Guardando...";
+        btn.disabled = true;
+
         userCapital = parseFloat(document.getElementById('inputCapital').value) || 0;
         userRate = parseFloat(document.getElementById('inputRate').value) || 0;
 
         // Guardar en servidor (Google Sheets)
         try {
-            await fetch('/api/financial-config', {
+            const res = await fetch('/api/financial-config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ capital: userCapital, rate: userRate })
             });
 
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('financialConfigModal'));
-            modal.hide();
+            if (res.ok) {
+                // Cerrar modal
+                const modalElement = document.getElementById('financialConfigModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
 
-            accumulated = 0; // Resetear acumulado al guardar nuevo config
-            updateDisplay();
-            alert("Configuración guardada y sincronizada.");
+                accumulated = 0; // Resetear acumulado
+                updateDisplay();
+                alert("✅ ¡Configuración guardada y sincronizada!");
+            } else {
+                alert("❌ Error al guardar en Google Sheets. Verifica que la pestaña 'Usuarios' exista.");
+            }
         } catch (e) {
-            alert("Error al guardar.");
+            console.error(e);
+            alert("❌ Error de conexión.");
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
         }
     }
 
