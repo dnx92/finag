@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Latido Financiero -->
+<div class="row mb-4 text-center">
+    <div class="col-md-4 mb-3">
+        <div class="card metric-card p-3">
+            <h6 class="text-secondary text-uppercase small">Pesos por Segundo</h6>
+            <h2 class="text-success-custom fw-bold">${{ "%.4f"|format(pesos_s) }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card metric-card p-3">
+            <h6 class="text-secondary text-uppercase small">Ganancia Diaria Proy.</h6>
+            <h2 class="text-light fw-bold">${{ "{:,.0f}".format(ganancia) }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card metric-card p-3">
+            <h6 class="text-secondary text-uppercase small">Capital Total</h6>
+            <h2 class="text-light fw-bold">${{ "{:,.0f}".format(capital) }}</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna Izquierda: Gráficos y Mapa -->
+    <div class="col-lg-9">
+
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-transparent border-0 fw-bold">
+                        <i class="fas fa-chart-bar me-2 text-primary"></i> Rendimiento Cartera
+                    </div>
+                    <div class="card-body">
+                        <canvas id="ratesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-transparent border-0 fw-bold">
+                        <i class="fas fa-map-marked-alt me-2 text-warning"></i> Mapa Maestro
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Mapa incrustado -->
+                        <div class="ratio ratio-1x1" style="max-height: 400px;">
+                            {{ map_html|safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Columna Derecha: Sidebar (Asistente & Carga Rápida) -->
+    <div class="col-lg-3">
+
+        <!-- Asistente AI -->
+        <div class="card mb-4">
+            <div class="card-header bg-transparent fw-bold border-0">
+                <i class="fas fa-robot me-2 text-info"></i> Asistente Virtual
+            </div>
+            <div class="card-body">
+                {% if alerts %}
+                <ul class="list-group list-group-flush">
+                    {% for alert in alerts %}
+                    <li class="list-group-item bg-transparent text-light border-secondary">
+                        <span class="badge bg-{{ alert.class }} me-2">{{ alert.priority }}</span>
+                        {{ alert.msg }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="alert alert-success mt-2 mb-0">
+                    <i class="fas fa-check-circle me-1"></i> Todo en orden.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Carga Rápida -->
+        <div class="card">
+            <div class="card-header bg-transparent fw-bold border-0">
+                <i class="fas fa-bolt me-2 text-warning"></i> Carga Rápida
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-2">
+                        <select class="form-select bg-dark text-light border-secondary form-select-sm">
+                            <option>Gasto</option>
+                            <option>Inversión</option>
+                            <option>Venta</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <input type="text" class="form-control bg-dark text-light border-secondary form-control-sm"
+                            placeholder="Concepto">
+                    </div>
+                    <div class="mb-2">
+                        <input type="number" class="form-control bg-dark text-light border-secondary form-control-sm"
+                            placeholder="Monto ($)">
+                    </div>
+                    <button type="button" class="btn btn-outline-success btn-sm w-100"
+                        onclick="alert('Funcionalidad simulada: Movimiento guardado.')">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ctx = document.getElementById('ratesChart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_data.labels | safe }},
+    datasets: [{
+        label: 'Tasa Annual (TNA)',
+        data: {{ chart_data.values | safe }},
+        backgroundColor: {{ chart_data.colors | safe }},
+        borderWidth: 0
+            }]
+        },
+    options: {
+        responsive: true,
+            maintainAspectRatio: false,
+                plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                    grid: { color: '#444' }
+            },
+            x: {
+                grid: { display: false }
+            }
+        }
+    }
+    });
+</script>
+{% endblock %}

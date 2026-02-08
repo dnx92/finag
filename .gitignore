@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Environment Variables & Secrets
+.env
+secrets.toml
+credentials.json
+client_secret.json
+
+# Streamlit
+.streamlit/*
+!.streamlit/config.toml
+
+# VS Code
+.vscode/
+
+# Distribución
+dist/
+build/
+*.egg-info/
