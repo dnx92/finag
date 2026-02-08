@@ -98,12 +98,25 @@ class DataManager:
             cell = ws.find(user_id)
             if cell:
                 row_values = ws.row_values(cell.row)
+                # Helper para convertir string a float (manejo de comas)
+                def to_float(val):
+                    if isinstance(val, (int, float)): return float(val)
+                    if isinstance(val, str):
+                        val = val.replace(',', '.').strip()
+                        if not val: return 0.0
+                        return float(val)
+                    return 0.0
+
                 # Orden: ID, Email, Capital, Tasa, Timestamp
                 # Ajustamos índices (+1 por el email insertado)
+                capital = to_float(row_values[2]) if len(row_values) > 2 else 0
+                rate = to_float(row_values[3]) if len(row_values) > 3 else 0
+                timestamp = row_values[4] if len(row_values) > 4 else datetime.now().isoformat()
+                
                 return {
-                    "capital": float(row_values[2]) if len(row_values) > 2 else 0,
-                    "rate": float(row_values[3]) if len(row_values) > 3 else 0,
-                    "timestamp": row_values[4] if len(row_values) > 4 else datetime.now().isoformat()
+                    "capital": capital,
+                    "rate": rate,
+                    "timestamp": timestamp
                 }
             return default_config
         except Exception as e:
