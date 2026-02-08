@@ -9,3 +9,4 @@ gunicorn
 Flask-Login
 authlib
 requests
+cachetools

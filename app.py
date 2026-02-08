@@ -8,6 +8,12 @@ from authlib.integrations.flask_client import OAuth
 from urllib.parse import urlencode
 import os
 import json
+from dotenv import load_dotenv
+
+# Cargar variables de entorno locales (.env)
+load_dotenv()
+
+from market_data import MarketData
 
 app = Flask(__name__)
 # Necesario para sesiones Flask
@@ -101,6 +107,9 @@ def dashboard():
     propiedades_df = dm.get_data("Propiedades")
     inventario_df = dm.get_data("Inventario")
     vencimientos_df = dm.get_data("Vencimientos")
+    
+    # Cotizaciones Dólar
+    dolar_rates = MarketData.get_dolar_rates()
 
     # Métricas
     pesos_s, ganancia_diaria, capital = utils.calculate_financial_pulse(finanzas_df)
@@ -166,7 +175,8 @@ def dashboard():
                            capital=capital,
                            alerts=alerts,
                            map_html=map_html,
-                           chart_data=chart_data)
+                           chart_data=chart_data,
+                           dolar_rates=dolar_rates)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
