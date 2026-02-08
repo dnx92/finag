@@ -141,6 +141,10 @@
             <div class="card-body">
                 <form>
                     <div class="mb-2">
+                        <button type="button" class="btn btn-warning btn-sm w-100 mb-2"
+                            onclick="alert('JS Funcionando OK. Intenta Guardar ahora.')">
+                            <i class="fas fa-bug"></i> TEST JS
+                        </button>
                         <select class="form-select bg-dark text-light border-secondary form-select-sm">
                             <option>Gasto</option>
                             <option>Inversión</option>
@@ -169,6 +173,8 @@
 
 {% block scripts %}
 <script>
+    console.log("--> SCRIPT START <--");
+
     // --- VARIABLES GLOBALES ---
     let userCapital = 0;
     let userRate = 0;
