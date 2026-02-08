@@ -10,3 +10,5 @@ Flask-Login
 authlib
 requests
 cachetools
+gspread
+oauth2client

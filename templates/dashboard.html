@@ -22,21 +22,55 @@
 <!-- Latido Financiero -->
 <div class="row mb-4 text-center">
     <div class="col-md-4 mb-3">
-        <div class="card metric-card p-3">
+        <div class="card metric-card p-3" style="cursor: pointer;" data-bs-toggle="modal"
+            data-bs-target="#financialConfigModal">
             <h6 class="text-secondary text-uppercase small">Pesos por Segundo</h6>
-            <h2 class="text-success-custom fw-bold">${{ "%.4f"|format(pesos_s) }}</h2>
+            <h2 class="text-success-custom fw-bold" id="pesosPerSecondDisplay">$0.0000</h2>
+            <small class="text-muted" style="font-size: 0.7rem;" id="accumulatedDisplay">Click para configurar</small>
         </div>
     </div>
     <div class="col-md-4 mb-3">
         <div class="card metric-card p-3">
             <h6 class="text-secondary text-uppercase small">Ganancia Diaria Proy.</h6>
-            <h2 class="text-light fw-bold">${{ "{:,.0f}".format(ganancia) }}</h2>
+            <h2 class="text-light fw-bold" id="dailyProfitDisplay">$0</h2>
         </div>
     </div>
     <div class="col-md-4 mb-3">
         <div class="card metric-card p-3">
             <h6 class="text-secondary text-uppercase small">Capital Total</h6>
-            <h2 class="text-light fw-bold">${{ "{:,.0f}".format(capital) }}</h2>
+            <h2 class="text-light fw-bold" id="totalCapitalDisplay">$0</h2>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Configuración Financiera -->
+<div class="modal fade" id="financialConfigModal" tabindex="-1" aria-labelledby="financialConfigModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="financialConfigModalLabel">Configurar Motor Financiero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="financialForm">
+                    <div class="mb-3">
+                        <label for="inputCapital" class="form-label text-secondary">Capital Invertido ($)</label>
+                        <input type="number" class="form-control bg-dark text-light border-secondary" id="inputCapital"
+                            required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputRate" class="form-label text-secondary">Tasa Anual Promedio (TNA %)</label>
+                        <input type="number" class="form-control bg-dark text-light border-secondary" id="inputRate"
+                            step="0.1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="saveFinancialConfig()">Guardar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -164,5 +198,93 @@
         }
     }
     });
+
+    // --- LOGICA DE LATIDO FINANCIERO (TICKER) ---
+    let userCapital = 0;
+    let userRate = 0;
+    let lastUpdate = new Date();
+    let accumulated = 0; // Ganancia acumulada "invisible"
+
+    // Cargar config al iniciar
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/financial-config');
+            const data = await res.json();
+
+            userCapital = parseFloat(data.capital) || 0;
+            userRate = parseFloat(data.rate) || 0;
+            const savedTime = new Date(data.timestamp);
+
+            // Llenar modal
+            document.getElementById('inputCapital').value = userCapital;
+            document.getElementById('inputRate').value = userRate;
+
+            // Calcular ganancia acumulada desde la ultima vez (Offline progression)
+            const now = new Date();
+            const secondsPassed = (now - savedTime) / 1000;
+            if (secondsPassed > 0 && userCapital > 0) {
+                const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
+                accumulated = profitPerSecond * secondsPassed;
+                console.log(`Ganancia Offline (${secondsPassed.toFixed(0)}s): $${accumulated.toFixed(2)}`);
+            }
+
+            updateDisplay();
+        } catch (e) {
+            console.error("Error loading config:", e);
+        }
+    }
+
+    async function saveFinancialConfig() {
+        userCapital = parseFloat(document.getElementById('inputCapital').value) || 0;
+        userRate = parseFloat(document.getElementById('inputRate').value) || 0;
+
+        // Guardar en servidor (Google Sheets)
+        try {
+            await fetch('/api/financial-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ capital: userCapital, rate: userRate })
+            });
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('financialConfigModal'));
+            modal.hide();
+
+            accumulated = 0; // Resetear acumulado al guardar nuevo config
+            updateDisplay();
+            alert("Configuración guardada y sincronizada.");
+        } catch (e) {
+            alert("Error al guardar.");
+        }
+    }
+
+    function updateDisplay() {
+        // Actualizar tarjetas estáticas
+        const dailyProfit = (userCapital * (userRate / 100)) / 365;
+        document.getElementById('dailyProfitDisplay').innerText = "$" + Math.floor(dailyProfit).toLocaleString();
+        document.getElementById('totalCapitalDisplay').innerText = "$" + Math.floor(userCapital).toLocaleString();
+    }
+
+    // El Loop del Tiempo (Ticker) - 10 FPS
+    setInterval(() => {
+        if (userCapital > 0 && userRate > 0) {
+            const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
+
+            // "Simulamos" que el capital crece en tiempo real
+            // En un sistema real serio, esto requeriría sync más compleja, 
+            // pero para efecto visual de "Flujo de Pesos", mostramos la velocidad.
+
+            document.getElementById('pesosPerSecondDisplay').innerText = "$" + profitPerSecond.toFixed(4);
+
+            // Bonus: Mostrar acumulado de la sesión
+            accumulated += profitPerSecond / 10; // dividido 10 porque corre a 100ms
+            if (accumulated > 0.01) {
+                document.getElementById('accumulatedDisplay').innerText = "+$" + accumulated.toFixed(2) + " en esta sesión";
+            }
+        }
+    }, 100);
+
+    // Iniciar
+    loadConfig();
 </script>
 {% endblock %}

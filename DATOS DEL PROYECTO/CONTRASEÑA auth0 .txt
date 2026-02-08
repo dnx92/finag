@@ -1,5 +1,0 @@
-SECRET_KEY
-
-campo_seguro_contraseña_super_larga_2024_xyz
-campo_seguro_contraseña_super_larga_2024_xyz
-campo_seguro_contraseña_super_larga_2024_xyz

@@ -64,6 +64,25 @@ def inject_market_data():
         indicators = {}
     return dict(indicators=indicators)
 
+# API para Configuración Financiera (Ticker)
+@app.route('/api/financial-config', methods=['GET', 'POST'])
+@login_required
+def financial_config():
+    if request.method == 'GET':
+        config = dm.get_user_config(current_user.id)
+        return jsonify(config)
+    
+    if request.method == 'POST':
+        data = request.json
+        capital = data.get('capital', 0)
+        rate = data.get('rate', 0)
+        
+        success = dm.save_user_config(current_user.id, capital, rate)
+        if success:
+            return jsonify({"status": "success"})
+        else:
+            return jsonify({"status": "error"}), 500
+
 @app.route('/login')
 def login():
     return auth0.authorize_redirect(redirect_uri=url_for('callback', _external=True))
