@@ -121,11 +121,16 @@ def logout():
     session.clear()
     
     # Redirigir a logout de Auth0
+    # IMPORTANTE: La URL 'returnTo' debe estar en "Allowed Logout URLs" en Auth0
     params = {
-        'returnTo': url_for('login_page', _external=True),
+        'returnTo': url_for('goodbye', _external=True),
         'client_id': os.environ.get("AUTH0_CLIENT_ID")
     }
     return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
+
+@app.route('/goodbye')
+def goodbye():
+    return render_template('logout.html')
 
 
 @app.route('/')

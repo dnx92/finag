@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sesión Cerrada - AgroFinance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+
+        .logout-card {
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #333;
+            border-radius: 15px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .icon-circle {
+            width: 80px;
+            height: 80px;
+            background: rgba(25, 135, 84, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            border: 2px solid #198754;
+        }
+
+        .btn-login {
+            background: linear-gradient(45deg, #198754, #20c997);
+            border: none;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(32, 201, 151, 0.3);
+            color: white;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="logout-card">
+        <div class="icon-circle">
+            <i class="fas fa-lock fa-2x text-success"></i>
+        </div>
+        <h3 class="mb-3 fw-bold">Sesión Cerrada</h3>
+        <p class="text-secondary mb-4">Has salido correctamente de AgroFinance. Tu progreso financiero está a salvo.</p>
+
+        <a href="{{ url_for('login') }}" class="btn btn-login text-white w-100">
+            <i class="fas fa-sign-in-alt me-2"></i> Iniciar Sesión Nueva
+        </a>
+
+        <div class="mt-4 pt-3 border-top border-secondary">
+            <small class="text-muted" style="font-size: 0.7rem;">AgroFinance v1.0 &copy; 2026</small>
+        </div>
+    </div>
+
+</body>
+
+</html>
