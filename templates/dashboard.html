@@ -169,136 +169,135 @@
 
 {% block scripts %}
 <script>
-    const ctx = document.getElementById('ratesChart').getContext('2d');
-    const myChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: {{ chart_data.labels | safe }},
-    datasets: [{
-        label: 'Tasa Annual (TNA)',
-        data: {{ chart_data.values | safe }},
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("Dashboard Loaded");
+
+        // --- CHART.JS ---
+        try {
+            const ctx = document.getElementById('ratesChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ chart_data.labels | safe }},
+        datasets: [{
+            label: 'Tasa Annual (TNA)',
+            data: {{ chart_data.values | safe }},
         backgroundColor: {{ chart_data.colors | safe }},
         borderWidth: 0
-            }]
-        },
-    options: {
-        responsive: true,
-            maintainAspectRatio: false,
-                plugins: {
-            legend: { display: false }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                    grid: { color: '#444' }
+                }]
             },
-            x: {
-                grid: { display: false }
-            }
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#444' } },
+            x: { grid: { display: false } }
         }
     }
-    });
+        });
+    } catch (e) {
+        console.error("Error iniciando Chart.js:", e);
+    }
 
-    // --- LOGICA DE LATIDO FINANCIERO (TICKER) ---
-    let userCapital = 0;
-    let userRate = 0;
-    let lastUpdate = new Date();
-    let accumulated = 0; // Ganancia acumulada "invisible"
+    // --- LOGICA LATIDO FINANCIERO ---
+    // Definimos variables globales
+    window.userCapital = 0;
+    window.userRate = 0;
+    window.accumulated = 0;
 
-    // Cargar config al iniciar
+    // Función Global para guardar (necesaria para el onclick del HTML)
+    window.saveFinancialConfig = async function () {
+        console.log("Intentando guardar...");
+        const btn = document.querySelector('#financialConfigModal .btn-success');
+        const originalText = btn.innerText;
+        btn.innerText = "Guardando...";
+        btn.disabled = true;
+
+        const capInput = parseFloat(document.getElementById('inputCapital').value) || 0;
+        const rateInput = parseFloat(document.getElementById('inputRate').value) || 0;
+
+        try {
+            const res = await fetch('/api/financial-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ capital: capInput, rate: rateInput })
+            });
+
+            if (res.ok) {
+                // Actualizar estado local
+                window.userCapital = capInput;
+                window.userRate = rateInput;
+                window.accumulated = 0;
+                updateDisplay();
+
+                // Cerrar modal
+                const modalElement = document.getElementById('financialConfigModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+
+                alert("✅ Configuración guardada correctamente.");
+            } else {
+                const errText = await res.text();
+                alert("❌ Error del servidor: " + errText); // Mostrar error real del servidor
+            }
+        } catch (e) {
+            console.error(e);
+            alert("❌ Error de conexión: " + e.message);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    };
+
     async function loadConfig() {
         try {
             const res = await fetch('/api/financial-config');
+            if (!res.ok) throw new Error("Error fetching config");
             const data = await res.json();
 
-            userCapital = parseFloat(data.capital) || 0;
-            userRate = parseFloat(data.rate) || 0;
+            window.userCapital = parseFloat(data.capital) || 0;
+            window.userRate = parseFloat(data.rate) || 0;
+
+            // Llenar inputs
+            document.getElementById('inputCapital').value = window.userCapital;
+            document.getElementById('inputRate').value = window.userRate;
+
+            // Logica Offline
             const savedTime = new Date(data.timestamp);
-
-            // Llenar modal
-            document.getElementById('inputCapital').value = userCapital;
-            document.getElementById('inputRate').value = userRate;
-
-            // Calcular ganancia acumulada desde la ultima vez (Offline progression)
             const now = new Date();
             const secondsPassed = (now - savedTime) / 1000;
-            if (secondsPassed > 0 && userCapital > 0) {
-                const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
-                accumulated = profitPerSecond * secondsPassed;
-                console.log(`Ganancia Offline (${secondsPassed.toFixed(0)}s): $${accumulated.toFixed(2)}`);
+            if (secondsPassed > 0 && window.userCapital > 0) {
+                const profitPerSecond = (window.userCapital * (window.userRate / 100)) / 31536000;
+                window.accumulated = profitPerSecond * secondsPassed;
             }
-
             updateDisplay();
         } catch (e) {
             console.error("Error loading config:", e);
         }
     }
 
-    async function saveFinancialConfig() {
-        const btn = document.querySelector('#financialConfigModal .btn-success');
-        const originalText = btn.innerText;
-        btn.innerText = "Guardando...";
-        btn.disabled = true;
-
-        userCapital = parseFloat(document.getElementById('inputCapital').value) || 0;
-        userRate = parseFloat(document.getElementById('inputRate').value) || 0;
-
-        // Guardar en servidor (Google Sheets)
-        try {
-            const res = await fetch('/api/financial-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ capital: userCapital, rate: userRate })
-            });
-
-            if (res.ok) {
-                // Cerrar modal
-                const modalElement = document.getElementById('financialConfigModal');
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                modal.hide();
-
-                accumulated = 0; // Resetear acumulado
-                updateDisplay();
-                alert("✅ ¡Configuración guardada y sincronizada!");
-            } else {
-                alert("❌ Error al guardar en Google Sheets. Verifica que la pestaña 'Usuarios' exista.");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("❌ Error de conexión.");
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
-    }
-
     function updateDisplay() {
-        // Actualizar tarjetas estáticas
-        const dailyProfit = (userCapital * (userRate / 100)) / 365;
+        const dailyProfit = (window.userCapital * (window.userRate / 100)) / 365;
         document.getElementById('dailyProfitDisplay').innerText = "$" + Math.floor(dailyProfit).toLocaleString();
-        document.getElementById('totalCapitalDisplay').innerText = "$" + Math.floor(userCapital).toLocaleString();
+        document.getElementById('totalCapitalDisplay').innerText = "$" + Math.floor(window.userCapital).toLocaleString();
     }
 
-    // El Loop del Tiempo (Ticker) - 10 FPS
+    // Ticker Loop
     setInterval(() => {
-        if (userCapital > 0 && userRate > 0) {
-            const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
-
-            // "Simulamos" que el capital crece en tiempo real
-            // En un sistema real serio, esto requeriría sync más compleja, 
-            // pero para efecto visual de "Flujo de Pesos", mostramos la velocidad.
-
+        if (window.userCapital > 0 && window.userRate > 0) {
+            const profitPerSecond = (window.userCapital * (window.userRate / 100)) / 31536000;
             document.getElementById('pesosPerSecondDisplay').innerText = "$" + profitPerSecond.toFixed(4);
 
-            // Bonus: Mostrar acumulado de la sesión
-            accumulated += profitPerSecond / 10; // dividido 10 porque corre a 100ms
-            if (accumulated > 0.01) {
-                document.getElementById('accumulatedDisplay').innerText = "+$" + accumulated.toFixed(2) + " en esta sesión";
+            window.accumulated += profitPerSecond / 10;
+            if (window.accumulated > 0.01) {
+                document.getElementById('accumulatedDisplay').innerText = "+$" + window.accumulated.toFixed(2) + " sesión";
             }
         }
     }, 100);
 
     // Iniciar
     loadConfig();
+});
 </script>
 {% endblock %}
