@@ -5,12 +5,13 @@
 {% if dolar_rates %}
 <div class="row mb-4">
     {% for rate in dolar_rates %}
-    <div class="col-md-2 col-6 mb-2">
-        <div class="card bg-dark border-secondary text-center h-100">
-            <div class="card-body p-2">
-                <small class="text-secondary text-uppercase fw-bold">{{ rate.nombre }}</small>
-                <h5 class="text-success mb-0">${{ rate.venta }}</h5>
-                <small class="text-muted" style="font-size: 0.75rem;">C: ${{ rate.compra }}</small>
+    <div class="col-lg-2 col-4 mb-2">
+        <div class="card bg-dark border-secondary text-center h-100 shadow-sm">
+            <div class="card-body p-1">
+                <small class="text-secondary text-uppercase fw-bold" style="font-size: 0.65rem;">{{ rate.nombre
+                    }}</small>
+                <h6 class="text-success mb-0 fw-bold">${{ rate.venta }}</h6>
+                <small class="text-muted d-block" style="font-size: 0.65rem;">Compra: ${{ rate.compra }}</small>
             </div>
         </div>
     </div>
