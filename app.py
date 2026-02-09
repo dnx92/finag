@@ -75,8 +75,11 @@ def financial_config():
     if request.method == 'POST':
         data = request.json
         print(f"📥 POST /api/financial-config received: {data}") # DEBUG LOG
-        capital = data.get('capital', 0)
-        rate = data.get('rate', 0)
+        try:
+            capital = float(data.get('capital', 0))
+            rate = float(data.get('rate', 0))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "Valores numéricos inválidos"}), 400
         
         # Pasamos el email también para que sea legible en el Sheet
         success = dm.save_user_config(current_user.id, current_user.email, capital, rate)

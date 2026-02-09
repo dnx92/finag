@@ -132,25 +132,28 @@ class DataManager:
             ws = self.sheet.worksheet("Usuarios")
             timestamp = datetime.now().isoformat()
             
+            # Buscar específicamente en la Columna 1 (ID)
             try:
-                cell = ws.find(user_id)
-            except gspread.CellNotFound:
+                cell = ws.find(user_id, in_column=1)
+            except (gspread.CellNotFound, gspread.exceptions.CellNotFound):
                 cell = None
 
+            # Datos a guardar: ID, Email, Capital, Tasa, Timestamp
+            row_data = [user_id, user_email, float(capital), float(rate), timestamp]
+
             if cell:
-                # Actualizar: ID(1), Email(2), Capital(3), Tasa(4), Time(5)
-                # gspread usa 1-based index. Cell row es la fila.
-                # Queremos actualizar col 2,3,4,5
-                ws.update_cell(cell.row, 2, user_email) # Actualizar email por si cambió
-                ws.update_cell(cell.row, 3, capital)
-                ws.update_cell(cell.row, 4, rate)
-                ws.update_cell(cell.row, 5, timestamp)
+                # Actualizar fila existente (Usando update para ser más eficiente que múltiples update_cell)
+                # El rango es A{row}:E{row}
+                range_label = f"A{cell.row}:E{cell.row}"
+                ws.update(range_label, [row_data])
             else:
                 # Append: ID, Email, Capital, Tasa, Timestamp
-                ws.append_row([user_id, user_email, capital, rate, timestamp])
+                ws.append_row(row_data)
+                
+            print(f"✅ Configuración guardada para: {user_email}")
             return True
         except Exception as e:
-            print(f"Error saving: {e}")
+            print(f"❌ Error al guardar en Sheets: {e}")
             return False
 
     def _get_mock_data(self, tab_name):
