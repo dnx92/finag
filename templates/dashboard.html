@@ -169,6 +169,12 @@
 {% block scripts %}
 <script>
     console.log("--> SCRIPT START <--");
+    alert("Script dashboard cargado");
+
+    window.onerror = function (msg, url, lineNo, columnNo, error) {
+        alert("ERROR JS: " + msg + "\nLínea: " + lineNo);
+        return false;
+    };
 
     // --- VARIABLES GLOBALES ---
     let userCapital = 0;
@@ -176,7 +182,7 @@
     let accumulated = 0;
 
     // --- FUNCIONES (Global Scope) ---
-    async function loadConfig() {
+    window.loadConfig = async function () {
         console.log("Cargando configuración...");
         try {
             const res = await fetch('/api/financial-config');
@@ -209,7 +215,8 @@
         }
     }
 
-    async function saveFinancialConfig() {
+    window.saveFinancialConfig = async function () {
+        alert("Ejecutando saveFinancialConfig...");
         console.log("--> saveFinancialConfig CALLED <--");
         const btn = document.querySelector('#financialConfigModal .btn-success');
         let originalText = "Guardar";
@@ -261,7 +268,7 @@
         }
     }
 
-    function updateDisplay() {
+    window.updateDisplay = function () {
         const dailyProfit = (userCapital * (userRate / 100)) / 365;
         const dailyDisplay = document.getElementById('dailyProfitDisplay');
         const capitalDisplay = document.getElementById('totalCapitalDisplay');
