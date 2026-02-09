@@ -168,31 +168,31 @@
 
 {% block scripts %}
 <script>
-    console.log("--> AGRO-DASHBOARD ENGINE START <--");
+    console.log("--> SCRIPT START <--");
 
-    // --- GLOBALS ---
+    // --- VARIABLES GLOBALES ---
     let userCapital = 0;
     let userRate = 0;
     let accumulated = 0;
 
-    // --- CORE FUNCTIONS ---
+    // --- FUNCIONES (Global Scope) ---
     async function loadConfig() {
-        console.log("Fetching configuration...");
+        console.log("Cargando configuración...");
         try {
             const res = await fetch('/api/financial-config');
-            if (!res.ok) throw new Error("Config fetch failed");
+            if (!res.ok) throw new Error("Error fetching config");
             const data = await res.json();
 
             userCapital = parseFloat(data.capital) || 0;
             userRate = parseFloat(data.rate) || 0;
 
-            // Update Modal Inputs
+            // Llenar inputs del modal
             const capInput = document.getElementById('inputCapital');
             const rateInput = document.getElementById('inputRate');
             if (capInput) capInput.value = userCapital;
             if (rateInput) rateInput.value = userRate;
 
-            // Offline Earnings Logic
+            // Logica Offline
             if (data.timestamp) {
                 const savedTime = new Date(data.timestamp);
                 const now = new Date();
@@ -200,21 +200,22 @@
                 if (secondsPassed > 0 && userCapital > 0) {
                     const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
                     accumulated = profitPerSecond * secondsPassed;
-                    console.log(`Earned offline: $${accumulated.toFixed(2)}`);
+                    console.log(`Ganancia Offline (${secondsPassed.toFixed(0)}s): $${accumulated.toFixed(2)}`);
                 }
             }
             updateDisplay();
         } catch (e) {
-            console.error("Config load error:", e);
+            console.error("Error loading config:", e);
         }
     }
 
     async function saveFinancialConfig() {
-        console.log("Saving configuration...");
+        console.log("Boton Guardar presionado.");
         const btn = document.querySelector('#financialConfigModal .btn-success');
-        const originalText = btn ? btn.innerText : "Guardar";
+        let originalText = "Guardar";
 
         if (btn) {
+            originalText = btn.innerText;
             btn.innerText = "Guardando...";
             btn.disabled = true;
         }
@@ -223,6 +224,7 @@
         const rateInput = parseFloat(document.getElementById('inputRate').value) || 0;
 
         try {
+            console.log("Enviando datos:", { capital: capInput, rate: rateInput });
             const res = await fetch('/api/financial-config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -230,21 +232,26 @@
             });
 
             if (res.ok) {
+                console.log("Guardado exitoso.");
                 userCapital = capInput;
                 userRate = rateInput;
                 accumulated = 0;
                 updateDisplay();
 
-                const modalEl = document.getElementById('financialConfigModal');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
+                const modalElement = document.getElementById('financialConfigModal');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
 
-                alert("✅ Configuración guardada.");
+                alert("✅ Configuración guardada correctamente.");
             } else {
-                const err = await res.text();
-                alert("❌ Error: " + err);
+                const errText = await res.text();
+                console.error("Error servidor:", errText);
+                alert("❌ Error del servidor: " + errText);
             }
         } catch (e) {
+            console.error("Excepción al guardar:", e);
             alert("❌ Error de conexión: " + e.message);
         } finally {
             if (btn) {
@@ -256,29 +263,32 @@
 
     function updateDisplay() {
         const dailyProfit = (userCapital * (userRate / 100)) / 365;
-        const dailyEl = document.getElementById('dailyProfitDisplay');
-        const capitalEl = document.getElementById('totalCapitalDisplay');
+        const dailyDisplay = document.getElementById('dailyProfitDisplay');
+        const capitalDisplay = document.getElementById('totalCapitalDisplay');
 
-        if (dailyEl) dailyEl.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
-        if (capitalEl) capitalEl.innerText = "$" + Math.floor(userCapital).toLocaleString();
+        if (dailyDisplay) dailyDisplay.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
+        if (capitalDisplay) capitalDisplay.innerText = "$" + Math.floor(userCapital).toLocaleString();
     }
 
-    // --- INITIALIZATION ---
+    // --- INICIALIZACIÓN ---
     document.addEventListener("DOMContentLoaded", function () {
+        console.log("Dashboard Inicializando...");
+
+        // Iniciar Datos
         loadConfig();
 
-        // Chart.js Init
+        // Iniciar Chart.js
         try {
             const ctx = document.getElementById('ratesChart')?.getContext('2d');
             if (ctx) {
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: {{ chart_data.labels | tojson | safe }},
+                        labels: {{ chart_data.labels | safe }},
             datasets: [{
-                label: 'Tasa Anual (TNA)',
-                data: {{ chart_data.values | tojson | safe }},
-                                    backgroundColor: {{ chart_data.colors | tojson | safe }},
+                label: 'Tasa Annual (TNA)',
+                data: {{ chart_data.values | safe }},
+        backgroundColor: { { chart_data.colors | safe } },
         borderWidth: 0
     }]
                     },
@@ -294,21 +304,21 @@
                 });
             }
         } catch (e) {
-        console.error("Chart init error:", e);
+        console.error("Error iniciando Chart.js:", e);
     }
 
-    // Ticker Loop (10 FPS)
+    // Iniciar Ticker Loop (10 FPS)
     setInterval(() => {
         if (userCapital > 0 && userRate > 0) {
             const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
-            const tickerEl = document.getElementById('pesosPerSecondDisplay');
-            const accEl = document.getElementById('accumulatedDisplay');
+            const tickerDisplay = document.getElementById('pesosPerSecondDisplay');
+            const accDisplay = document.getElementById('accumulatedDisplay');
 
-            if (tickerEl) tickerEl.innerText = "$" + profitPerSecond.toFixed(4);
+            if (tickerDisplay) tickerDisplay.innerText = "$" + profitPerSecond.toFixed(4);
 
             accumulated += profitPerSecond / 10;
-            if (accEl && accumulated > 0.01) {
-                accEl.innerText = "+$" + accumulated.toFixed(2) + " sesión";
+            if (accDisplay && accumulated > 0.01) {
+                accDisplay.innerText = "+$" + accumulated.toFixed(2) + " sesión";
             }
         }
     }, 100);
