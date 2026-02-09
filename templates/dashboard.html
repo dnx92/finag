@@ -21,14 +21,7 @@
 
 <!-- Latido Financiero -->
 <div class="row mb-4 text-center">
-    <div class="col-md-4 mb-3">
-        <div class="card metric-card p-3" style="cursor: pointer;" data-bs-toggle="modal"
-            data-bs-target="#financialConfigModal">
-            <h6 class="text-secondary text-uppercase small">Pesos por Segundo</h6>
-            <h2 class="text-success-custom fw-bold" id="pesosPerSecondDisplay">$0.0000</h2>
-            <small class="text-muted" style="font-size: 0.7rem;" id="accumulatedDisplay">Click para configurar</small>
-        </div>
-    </div>
+
     <div class="col-md-4 mb-3">
         <div class="card metric-card p-3">
             <h6 class="text-secondary text-uppercase small">Ganancia Diaria Proy.</h6>
@@ -43,37 +36,7 @@
     </div>
 </div>
 
-<!-- Modal Configuración Financiera -->
-<div class="modal fade" id="financialConfigModal" tabindex="-1" aria-labelledby="financialConfigModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark text-light border-secondary">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="financialConfigModalLabel">Configurar Motor Financiero</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="financialForm">
-                    <div class="mb-3">
-                        <label for="inputCapital" class="form-label text-secondary">Capital Invertido ($)</label>
-                        <input type="number" class="form-control bg-dark text-light border-secondary" id="inputCapital"
-                            required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="inputRate" class="form-label text-secondary">Tasa Anual Promedio (TNA %)</label>
-                        <input type="number" class="form-control bg-dark text-light border-secondary" id="inputRate"
-                            step="0.1" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="saveFinancialConfig()">Guardar</button>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <div class="row">
     <!-- Columna Izquierda: Gráficos y Mapa -->
@@ -168,121 +131,14 @@
 
 {% block scripts %}
 <script>
-    console.log("--> SCRIPT START <--");
-    alert("Script dashboard cargado");
 
-    window.onerror = function (msg, url, lineNo, columnNo, error) {
-        alert("ERROR JS: " + msg + "\nLínea: " + lineNo);
-        return false;
-    };
-
-    // --- VARIABLES GLOBALES ---
-    let userCapital = 0;
-    let userRate = 0;
-    let accumulated = 0;
-
-    // --- FUNCIONES (Global Scope) ---
-    window.loadConfig = async function () {
-        console.log("Cargando configuración...");
-        try {
-            const res = await fetch('/api/financial-config');
-            if (!res.ok) throw new Error("Error fetching config");
-            const data = await res.json();
-
-            userCapital = parseFloat(data.capital) || 0;
-            userRate = parseFloat(data.rate) || 0;
-
-            // Llenar inputs del modal
-            const capInput = document.getElementById('inputCapital');
-            const rateInput = document.getElementById('inputRate');
-            if (capInput) capInput.value = userCapital;
-            if (rateInput) rateInput.value = userRate;
-
-            // Logica Offline
-            if (data.timestamp) {
-                const savedTime = new Date(data.timestamp);
-                const now = new Date();
-                const secondsPassed = (now - savedTime) / 1000;
-                if (secondsPassed > 0 && userCapital > 0) {
-                    const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
-                    accumulated = profitPerSecond * secondsPassed;
-                    console.log(`Ganancia Offline (${secondsPassed.toFixed(0)}s): $${accumulated.toFixed(2)}`);
-                }
-            }
-            updateDisplay();
-        } catch (e) {
-            console.error("Error loading config:", e);
-        }
-    }
-
-    window.saveFinancialConfig = async function () {
-        alert("Ejecutando saveFinancialConfig...");
-        console.log("--> saveFinancialConfig CALLED <--");
-        const btn = document.querySelector('#financialConfigModal .btn-success');
-        let originalText = "Guardar";
-
-        if (btn) {
-            originalText = btn.innerText;
-            btn.innerText = "Guardando...";
-            btn.disabled = true;
-        }
-
-        const capInput = parseFloat(document.getElementById('inputCapital').value) || 0;
-        const rateInput = parseFloat(document.getElementById('inputRate').value) || 0;
-
-        try {
-            console.log("Enviando datos:", { capital: capInput, rate: rateInput });
-            const res = await fetch('/api/financial-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ capital: capInput, rate: rateInput })
-            });
-
-            if (res.ok) {
-                console.log("Guardado exitoso.");
-                userCapital = capInput;
-                userRate = rateInput;
-                accumulated = 0;
-                updateDisplay();
-
-                const modalElement = document.getElementById('financialConfigModal');
-                if (modalElement) {
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) modal.hide();
-                }
-
-                alert("✅ Configuración guardada correctamente.");
-            } else {
-                const errText = await res.text();
-                console.error("Error servidor:", errText);
-                alert("❌ Error del servidor: " + errText);
-            }
-        } catch (e) {
-            console.error("Excepción al guardar:", e);
-            alert("❌ Error de conexión: " + e.message);
-        } finally {
-            if (btn) {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
-    }
-
-    window.updateDisplay = function () {
-        const dailyProfit = (userCapital * (userRate / 100)) / 365;
-        const dailyDisplay = document.getElementById('dailyProfitDisplay');
-        const capitalDisplay = document.getElementById('totalCapitalDisplay');
-
-        if (dailyDisplay) dailyDisplay.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
-        if (capitalDisplay) capitalDisplay.innerText = "$" + Math.floor(userCapital).toLocaleString();
-    }
 
     // --- INICIALIZACIÓN ---
     document.addEventListener("DOMContentLoaded", function () {
         console.log("Dashboard Inicializando...");
 
         // Iniciar Datos
-        loadConfig();
+
 
         // Iniciar Chart.js
         try {
@@ -314,21 +170,7 @@
         console.error("Error iniciando Chart.js:", e);
     }
 
-    // Iniciar Ticker Loop (10 FPS)
-    setInterval(() => {
-        if (userCapital > 0 && userRate > 0) {
-            const profitPerSecond = (userCapital * (userRate / 100)) / 31536000;
-            const tickerDisplay = document.getElementById('pesosPerSecondDisplay');
-            const accDisplay = document.getElementById('accumulatedDisplay');
 
-            if (tickerDisplay) tickerDisplay.innerText = "$" + profitPerSecond.toFixed(4);
-
-            accumulated += profitPerSecond / 10;
-            if (accDisplay && accumulated > 0.01) {
-                accDisplay.innerText = "+$" + accumulated.toFixed(2) + " sesión";
-            }
-        }
-    }, 100);
     });
 </script>
 {% endblock %}
