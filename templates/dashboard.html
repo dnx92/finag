@@ -210,7 +210,7 @@
     }
 
     async function saveFinancialConfig() {
-        console.log("Boton Guardar presionado.");
+        console.log("--> saveFinancialConfig CALLED <--");
         const btn = document.querySelector('#financialConfigModal .btn-success');
         let originalText = "Guardar";
 
@@ -288,7 +288,7 @@
             datasets: [{
                 label: 'Tasa Annual (TNA)',
                 data: {{ chart_data.values | safe }},
-        backgroundColor: { { chart_data.colors | safe } },
+        backgroundColor: {{ chart_data.colors | safe }},
         borderWidth: 0
     }]
                     },
