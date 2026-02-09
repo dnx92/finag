@@ -187,7 +187,8 @@
         rate: 0,
         balance: 0,
         gs: 0,
-        lastTick: performance.now()
+        lastTick: performance.now(),
+        synced: false
     };
 
     const LOCAL_KEY = 'agro_pulse_v4_local';
@@ -197,6 +198,9 @@
         function tick(now) {
             const delta = (now - state.lastTick) / 1000;
             state.lastTick = now;
+
+            // Mantener gs actualizado
+            state.gs = (state.capital * (state.rate / 100)) / 31536000;
 
             if (state.capital > 0) {
                 state.balance += state.gs * delta;
@@ -220,7 +224,36 @@
         if (capDisp) capDisp.innerText = "$" + Math.floor(state.capital).toLocaleString();
     }
 
-    // --- PERSISTENCIA LOCAL ---
+    // --- PERSISTENCIA Y SINCRONIZACIÓN ---
+    async function syncWithServer() {
+        setLocalStatus('syncing');
+        try {
+            const response = await fetch('/api/financial-config');
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Cloud Data:", data);
+
+                state.capital = parseFloat(data.capital) || 0;
+                state.rate = parseFloat(data.rate) || 0;
+                state.balance = parseFloat(data.current_balance) || 0;
+
+                // Actualizar inputs del modal
+                const capInput = document.getElementById('inputCapital');
+                const rateInput = document.getElementById('inputRate');
+                if (capInput) capInput.value = state.capital;
+                if (rateInput) rateInput.value = state.rate;
+
+                state.synced = true;
+                setLocalStatus('synced');
+            } else {
+                throw new Error("Failed to fetch from server");
+            }
+        } catch (e) {
+            console.warn("Server sync failed, falling back to local:", e);
+            loadLocal();
+        }
+    }
+
     function loadLocal() {
         const saved = localStorage.getItem(LOCAL_KEY);
         if (saved) {
@@ -230,16 +263,17 @@
 
             state.capital = parseFloat(data.capital) || 0;
             state.rate = parseFloat(data.rate) || 0;
-            state.gs = (state.capital * (state.rate / 100)) / 31536000;
+            const gs = (state.capital * (state.rate / 100)) / 31536000;
 
-            // Catch-up: Calcular ganancias mientras estaba en off
-            const accrued = Math.max(0, elapsedSeconds * state.gs);
+            const accrued = Math.max(0, elapsedSeconds * gs);
             state.balance = (parseFloat(data.balance) || 0) + accrued;
 
-            document.getElementById('inputCapital').value = state.capital;
-            document.getElementById('inputRate').value = state.rate;
+            const capInput = document.getElementById('inputCapital');
+            const rateInput = document.getElementById('inputRate');
+            if (capInput) capInput.value = state.capital;
+            if (rateInput) rateInput.value = state.rate;
         }
-        setLocalStatus('synced');
+        setLocalStatus('offline');
     }
 
     function saveLocal() {
@@ -257,10 +291,12 @@
         if (!indicator) return;
 
         if (status === 'synced') {
-            indicator.innerHTML = '<i class="fas fa-check-circle text-success"></i> Almacenado en Navegador';
+            indicator.innerHTML = '<i class="fas fa-cloud-check text-success"></i> Sincronizado con la nube';
             indicator.className = 'text-muted small';
+        } else if (status === 'syncing') {
+            indicator.innerHTML = '<i class="fas fa-sync fa-spin text-info"></i> Sincronizando...';
         } else {
-            indicator.innerHTML = '<i class="fas fa-save text-warning"></i> Guardando en local...';
+            indicator.innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Modo Local (Offline)';
         }
     }
 
@@ -270,48 +306,60 @@
         btn.disabled = true;
         btn.innerText = "Guardando...";
 
-        try {
-            const cap = parseFloat(document.getElementById('inputCapital').value) || 0;
-            const rate = parseFloat(document.getElementById('inputRate').value) || 0;
+        const capValue = document.getElementById('inputCapital').value;
+        const rateValue = document.getElementById('inputRate').value;
+        const cap = parseFloat(capValue) || 0;
+        const rate = parseFloat(rateValue) || 0;
 
-            state.capital = cap;
-            state.rate = rate;
-            state.gs = (cap * (rate / 100)) / 31536000;
+        // Actualizar estado inmediatamente
+        state.capital = cap;
+        state.rate = rate;
+
+        try {
+            const response = await fetch('/api/financial-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    capital: cap,
+                    rate: rate,
+                    balance_historico: state.balance
+                })
+            });
+
+            if (response.ok) {
+                console.log("Configuración guardada en la nube.");
+                setLocalStatus('synced');
+            } else {
+                console.error("Error al guardar en el servidor.");
+                setLocalStatus('offline');
+            }
 
             saveLocal();
-
             const modalEl = document.getElementById('financialConfigModal');
             bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-            console.log("Configuración local guardada.");
         } catch (e) {
-            alert("Error: " + e.message);
+            console.error("Error en saveSettings:", e);
+            saveLocal();
+            setLocalStatus('offline');
         } finally {
             btn.disabled = false;
             btn.innerText = originalText;
-            setLocalStatus('synced');
         }
     }
 
     // --- INICIALIZACIÓN ---
     document.addEventListener("DOMContentLoaded", function () {
-        console.log("Dashboard Inicializando v4 (PURE LOCAL)...");
+        console.log("Dashboard Inicializando CLOUD SYNC...");
 
-        // 1. Vincular Botón Guardar (Sin esperas de red)
         const saveBtn = document.getElementById('btnSaveConfig');
         if (saveBtn) {
             saveBtn.addEventListener('click', saveSettings);
         }
 
-        // 2. Cargar Datos Locales
-        loadLocal();
-
-        // 3. Arrancar Motor
+        syncWithServer();
         startTicker();
+        setInterval(saveLocal, 10000);
 
-        // Autosave Local cada 5 segs
-        setInterval(saveLocal, 5000);
-
-        // Iniciar Chart.js (Independiente)
         try {
             const ctx = document.getElementById('ratesChart')?.getContext('2d');
             if (ctx) {
@@ -338,8 +386,10 @@
                 });
             }
         } catch (e) {
-        console.error("Error Chart.js:", e);
+        console.error("Error en Chart.js:", e);
     }
     });
+
+
 </script>
 {% endblock %}
