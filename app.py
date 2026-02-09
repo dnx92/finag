@@ -70,6 +70,30 @@ def inject_market_data():
 def financial_config():
     if request.method == 'GET':
         config = dm.get_user_config(current_user.id)
+        
+        # Lógica de "Catch-up" (Poner al día el contador)
+        try:
+            last_ts = datetime.fromisoformat(config.get('timestamp'))
+            now_ts = datetime.now()
+            diff_seconds = (now_ts - last_ts).total_seconds()
+            
+            capital = float(config.get('capital', 0))
+            rate = float(config.get('rate', 0))
+            balance_historico = float(config.get('balance_historico', 0))
+            
+            # Ganancia por segundo (Gs)
+            gs = (capital * (rate / 100)) / 31536000 # 365 * 24 * 3600
+            
+            # Nuevo saldo inicial = histórico + (tiempo * ganancia)
+            accrued_profit = max(0, diff_seconds * gs)
+            current_balance = balance_historico + accrued_profit
+            
+            config['current_balance'] = current_balance
+            config['server_now'] = now_ts.isoformat()
+        except Exception as e:
+            print(f"Error calculando catch-up balance: {e}")
+            config['current_balance'] = config.get('balance_historico', 0)
+            
         return jsonify(config)
     
     if request.method == 'POST':

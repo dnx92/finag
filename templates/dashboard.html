@@ -181,190 +181,152 @@
 
 {% block scripts %}
 <script>
-    class FinancialPulse {
-        constructor(config) {
-            this.capital = parseFloat(config.capital) || 0;
-            this.rate = parseFloat(config.rate) || 0;
-            this.lastBalance = parseFloat(config.balance_historico) || 0;
-            this.serverTimestamp = new Date(config.timestamp).getTime();
-            this.clientSyncTime = Date.now();
+    // --- ESTADO GLOBAL ---
+    let state = {
+        capital: 0,
+        rate: 0,
+        balance: 0,
+        gs: 0,
+        lastTick: performance.now(),
+        isDirty: false
+    };
 
-            this.currentBalance = this.calculateInitialBalance();
-            this.lastTickTime = performance.now();
-            this.isDirty = false;
+    // --- MOTOR DEL CONTADOR ---
+    function startTicker() {
+        function tick(now) {
+            const delta = (now - state.lastTick) / 1000;
+            state.lastTick = now;
 
-            this.initUI();
-            this.startLoop();
-            this.initAutoSave();
-        }
-
-        calculateInitialBalance() {
-            if (this.capital <= 0) return this.lastBalance;
-            const now = Date.now();
-            const elapsedSeconds = (now - this.serverTimestamp) / 1000;
-            const gs = (this.capital * (this.rate / 100)) / 31536000;
-            return this.lastBalance + (gs * elapsedSeconds);
-        }
-
-        get gs() {
-            return (this.capital * (this.rate / 100)) / 31536000;
-        }
-
-        initUI() {
-            const btnSave = document.getElementById('btnSaveConfig');
-            if (btnSave) {
-                btnSave.onclick = () => this.saveFromModal();
+            if (state.capital > 0) {
+                state.balance += state.gs * delta;
+                updateDisplay();
             }
-            this.updateSyncIndicator(true);
-        }
-
-        updateSyncIndicator(isSynced) {
-            const indicator = document.getElementById('syncIndicator');
-            if (indicator) {
-                if (isSynced) {
-                    indicator.innerHTML = '<i class="fas fa-cloud-check text-success"></i> Sincronizado en la nube';
-                    indicator.classList.remove('text-warning');
-                    indicator.classList.add('text-muted');
-                } else {
-                    indicator.innerHTML = '<i class="fas fa-cloud-upload text-warning"></i> Cambios locales';
-                    indicator.classList.remove('text-muted');
-                    indicator.classList.add('text-warning');
-                }
-            }
-        }
-
-        startLoop() {
-            const tick = (now) => {
-                const delta = (now - this.lastTickTime) / 1000;
-                this.lastTickTime = now;
-
-                if (this.capital > 0) {
-                    this.currentBalance += this.gs * delta;
-                    this.updateDisplay();
-                }
-                requestAnimationFrame(tick);
-            };
             requestAnimationFrame(tick);
         }
+        requestAnimationFrame(tick);
+    }
 
-        updateDisplay() {
-            const display = document.getElementById('pesosPerSecondDisplay');
-            const daily = document.getElementById('dailyProfitDisplay');
-            const capDisp = document.getElementById('totalCapitalDisplay');
+    function updateDisplay() {
+        const display = document.getElementById('pesosPerSecondDisplay');
+        const daily = document.getElementById('dailyProfitDisplay');
+        const capDisp = document.getElementById('totalCapitalDisplay');
 
-            if (display) display.innerText = "$" + this.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-            if (daily) {
-                const dailyProfit = (this.capital * (this.rate / 100)) / 365;
-                daily.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
-            }
-            if (capDisp) capDisp.innerText = "$" + Math.floor(this.capital).toLocaleString();
+        if (display) display.innerText = "$" + state.balance.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+        if (daily) {
+            const dailyProfit = (state.capital * (state.rate / 100)) / 365;
+            daily.innerText = "$" + Math.floor(dailyProfit).toLocaleString();
         }
+        if (capDisp) capDisp.innerText = "$" + Math.floor(state.capital).toLocaleString();
+    }
 
-        initAutoSave() {
-            // LocalStorage cada 5 segs
-            setInterval(() => {
-                localStorage.setItem('financial_pulse_cache', JSON.stringify({
-                    balance: this.currentBalance,
-                    ts: Date.now()
-                }));
-            }, 5000);
-
-            // Cloud Sync cada 5 mins (con debouncing si hay cambios)
-            setInterval(() => {
-                if (this.isDirty) this.syncCloud();
-            }, 300000);
-        }
-
-        async saveFromModal() {
-            try {
-                const capInput = document.getElementById('inputCapital');
-                const rateInput = document.getElementById('inputRate');
-
-                if (!capInput || !rateInput) {
-                    console.error("No se encontraron los inputs del modal.");
-                    return;
-                }
-
-                const cap = parseFloat(capInput.value) || 0;
-                const rate = parseFloat(rateInput.value) || 0;
-
-                console.log(`Guardando: Capital=${cap}, Tasa=${rate}`);
-
-                this.capital = cap;
-                this.rate = rate;
-                this.isDirty = true;
-
-                await this.syncCloud();
-
-                const modalEl = document.getElementById('financialConfigModal');
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                if (modal) {
-                    modal.hide();
-                    console.log("Modal cerrado exitosamente.");
-                }
-            } catch (e) {
-                console.error("Error en saveFromModal:", e);
-                alert("Hubo un error al guardar la configuración.");
+    // --- SINCRONIZACIÓN ---
+    async function syncCloud() {
+        setSyncStatus('syncing');
+        try {
+            const res = await fetch('/api/financial-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    capital: state.capital,
+                    rate: state.rate,
+                    balance_historico: state.balance
+                })
+            });
+            if (res.ok) {
+                state.isDirty = false;
+                setSyncStatus('synced');
+                console.log("Sincronización exitosa.");
+            } else {
+                setSyncStatus('error');
             }
-        }
-
-        async syncCloud() {
-            this.updateSyncIndicator(false);
-            try {
-                const res = await fetch('/api/financial-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        capital: this.capital,
-                        rate: this.rate,
-                        balance_historico: this.currentBalance
-                    })
-                });
-                if (res.ok) {
-                    this.isDirty = false;
-                    this.updateSyncIndicator(true);
-                    console.log("Sincronización exitosa.");
-                }
-            } catch (e) {
-                console.error("Error sincronizando:", e);
-            }
+        } catch (e) {
+            console.error("Error en sync:", e);
+            setSyncStatus('error');
         }
     }
 
+    function setSyncStatus(status) {
+        const indicator = document.getElementById('syncIndicator');
+        if (!indicator) return;
+
+        if (status === 'synced') {
+            indicator.innerHTML = '<i class="fas fa-cloud-check text-success"></i> Sincronizado en la nube';
+            indicator.className = 'text-muted small';
+        } else if (status === 'syncing') {
+            indicator.innerHTML = '<i class="fas fa-spinner fa-spin text-info"></i> Sincronizando...';
+            indicator.className = 'text-info small';
+        } else if (status === 'dirty') {
+            indicator.innerHTML = '<i class="fas fa-cloud-upload text-warning"></i> Cambios locales';
+            indicator.className = 'text-warning small';
+        } else {
+            indicator.innerHTML = '<i class="fas fa-exclamation-triangle text-danger"></i> Error de sincronización';
+            indicator.className = 'text-danger small';
+        }
+    }
+
+    async function saveSettings() {
+        const btn = document.getElementById('btnSaveConfig');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "Guardando...";
+
+        try {
+            const cap = parseFloat(document.getElementById('inputCapital').value) || 0;
+            const rate = parseFloat(document.getElementById('inputRate').value) || 0;
+
+            state.capital = cap;
+            state.rate = rate;
+            state.gs = (cap * (rate / 100)) / 31536000;
+            state.isDirty = true;
+
+            await syncCloud();
+
+            const modalEl = document.getElementById('financialConfigModal');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        } catch (e) {
+            alert("Error al guardar: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
 
     // --- INICIALIZACIÓN ---
     document.addEventListener("DOMContentLoaded", async function () {
-        console.log("Dashboard Inicializando...");
+        console.log("Dashboard Inicializando v3...");
 
-        // Crear instancia con valores por defecto inmediatos
-        window.pulse = new FinancialPulse({
-            capital: 0,
-            rate: 0,
-            balance_historico: 0,
-            timestamp: new Date().toISOString()
-        });
+        // 1. Vincular Botón Guardar
+        const saveBtn = document.getElementById('btnSaveConfig');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveSettings);
+        }
 
-        // Intentar cargar configuración real
+        // 2. Cargar Datos Iniciales
         try {
             const res = await fetch('/api/financial-config');
             if (res.ok) {
                 const config = await res.json();
-                console.log("Configuración cargada:", config);
+                state.capital = parseFloat(config.capital) || 0;
+                state.rate = parseFloat(config.rate) || 0;
+                state.balance = parseFloat(config.current_balance) || 0;
+                state.gs = (state.capital * (state.rate / 100)) / 31536000;
 
-                // Actualizar instancia existente
-                window.pulse.capital = parseFloat(config.capital) || 0;
-                window.pulse.rate = parseFloat(config.rate) || 0;
-                window.pulse.lastBalance = parseFloat(config.balance_historico) || 0;
-                window.pulse.serverTimestamp = new Date(config.timestamp).getTime();
-                window.pulse.currentBalance = window.pulse.calculateInitialBalance();
-
-                // Actualizar inputs del modal
-                document.getElementById('inputCapital').value = config.capital || 0;
-                document.getElementById('inputRate').value = config.rate || 0;
+                document.getElementById('inputCapital').value = state.capital;
+                document.getElementById('inputRate').value = state.rate;
             }
         } catch (e) {
-            console.warn("No se pudo cargar la configuración de la nube (usando locales):", e);
+            console.error("Error cargando config inicial:", e);
         }
+
+        // 3. Arrancar Componentes de manera independiente
+        startTicker();
+
+        // Autosave Local (opcional, simplificado)
+        setInterval(() => {
+            if (state.capital > 0) {
+                localStorage.setItem('agro_pulse_v3', JSON.stringify({ balance: state.balance, ts: Date.now() }));
+            }
+        }, 10000);
 
         // Iniciar Chart.js
         try {
@@ -393,10 +355,8 @@
                 });
             }
         } catch (e) {
-        console.error("Error iniciando Chart.js:", e);
+        console.error("Error Chart.js:", e);
     }
-
-
     });
 </script>
 {% endblock %}
