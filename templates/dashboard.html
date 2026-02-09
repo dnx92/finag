@@ -276,16 +276,36 @@
         }
 
         async saveFromModal() {
-            const cap = parseFloat(document.getElementById('inputCapital').value) || 0;
-            const rate = parseFloat(document.getElementById('inputRate').value) || 0;
+            try {
+                const capInput = document.getElementById('inputCapital');
+                const rateInput = document.getElementById('inputRate');
 
-            this.capital = cap;
-            this.rate = rate;
-            this.isDirty = true;
-            await this.syncCloud();
+                if (!capInput || !rateInput) {
+                    console.error("No se encontraron los inputs del modal.");
+                    return;
+                }
 
-            const modal = bootstrap.Modal.getInstance(document.getElementById('financialConfigModal'));
-            if (modal) modal.hide();
+                const cap = parseFloat(capInput.value) || 0;
+                const rate = parseFloat(rateInput.value) || 0;
+
+                console.log(`Guardando: Capital=${cap}, Tasa=${rate}`);
+
+                this.capital = cap;
+                this.rate = rate;
+                this.isDirty = true;
+
+                await this.syncCloud();
+
+                const modalEl = document.getElementById('financialConfigModal');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                if (modal) {
+                    modal.hide();
+                    console.log("Modal cerrado exitosamente.");
+                }
+            } catch (e) {
+                console.error("Error en saveFromModal:", e);
+                alert("Hubo un error al guardar la configuración.");
+            }
         }
 
         async syncCloud() {
@@ -316,17 +336,34 @@
     document.addEventListener("DOMContentLoaded", async function () {
         console.log("Dashboard Inicializando...");
 
-        // Fetch inicial y arranque del motor
+        // Crear instancia con valores por defecto inmediatos
+        window.pulse = new FinancialPulse({
+            capital: 0,
+            rate: 0,
+            balance_historico: 0,
+            timestamp: new Date().toISOString()
+        });
+
+        // Intentar cargar configuración real
         try {
             const res = await fetch('/api/financial-config');
-            const config = await res.json();
-            window.pulse = new FinancialPulse(config);
+            if (res.ok) {
+                const config = await res.json();
+                console.log("Configuración cargada:", config);
 
-            // Vincular inputs del modal
-            document.getElementById('inputCapital').value = config.capital || 0;
-            document.getElementById('inputRate').value = config.rate || 0;
+                // Actualizar instancia existente
+                window.pulse.capital = parseFloat(config.capital) || 0;
+                window.pulse.rate = parseFloat(config.rate) || 0;
+                window.pulse.lastBalance = parseFloat(config.balance_historico) || 0;
+                window.pulse.serverTimestamp = new Date(config.timestamp).getTime();
+                window.pulse.currentBalance = window.pulse.calculateInitialBalance();
+
+                // Actualizar inputs del modal
+                document.getElementById('inputCapital').value = config.capital || 0;
+                document.getElementById('inputRate').value = config.rate || 0;
+            }
         } catch (e) {
-            console.error("Error al arrancar FinancialPulse:", e);
+            console.warn("No se pudo cargar la configuración de la nube (usando locales):", e);
         }
 
         // Iniciar Chart.js
@@ -347,10 +384,10 @@
         options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: false }},
         scales: {
-            y: { beginAtZero: true, grid: { color: '#444' } },
-            x: { grid: { display: false } }
+            y: { beginAtZero: true, grid: { color: '#444' }},
+            x: { grid: { display: false }}
         }
     }
                 });
