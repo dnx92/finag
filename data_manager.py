@@ -107,25 +107,27 @@ class DataManager:
                         return float(val)
                     return 0.0
 
-                # Orden: ID, Email, Capital, Tasa, Timestamp
+                # Orden: ID, Email, Capital, Tasa, Timestamp, Balance_Historico
                 # Ajustamos índices (+1 por el email insertado)
                 capital = to_float(row_values[2]) if len(row_values) > 2 else 0
                 rate = to_float(row_values[3]) if len(row_values) > 3 else 0
                 timestamp = row_values[4] if len(row_values) > 4 else datetime.now().isoformat()
+                balance_historico = to_float(row_values[5]) if len(row_values) > 5 else 0.0
                 
                 return {
                     "capital": capital,
                     "rate": rate,
-                    "timestamp": timestamp
+                    "timestamp": timestamp,
+                    "balance_historico": balance_historico
                 }
             return default_config
         except Exception as e:
             print(f"Error config: {e}")
             return default_config
 
-    def save_user_config(self, user_id, user_email, capital, rate):
+    def save_user_config(self, user_id, user_email, config_data):
         if self.use_mock:
-            print(f"Mock Save: {user_id} ({user_email}) -> ${capital}")
+            print(f"Mock Save: {user_id} ({user_email}) -> {config_data}")
             return True
 
         try:
@@ -138,16 +140,19 @@ class DataManager:
             except (gspread.CellNotFound, gspread.exceptions.CellNotFound):
                 cell = None
 
-            # Datos a guardar: ID, Email, Capital, Tasa, Timestamp
-            row_data = [user_id, user_email, float(capital), float(rate), timestamp]
+            # Datos a extraer
+            capital = float(config_data.get('capital', 0))
+            rate = float(config_data.get('rate', 0))
+            balance = float(config_data.get('balance_historico', 0))
+
+            row_data = [user_id, user_email, float(capital), float(rate), timestamp, balance]
 
             if cell:
-                # Actualizar fila existente (Usando update para ser más eficiente que múltiples update_cell)
-                # El rango es A{row}:E{row}
-                range_label = f"A{cell.row}:E{cell.row}"
+                # El rango es A{row}:F{row}
+                range_label = f"A{cell.row}:F{cell.row}"
                 ws.update(range_label, [row_data])
             else:
-                # Append: ID, Email, Capital, Tasa, Timestamp
+                # Append: ID, Email, Capital, Tasa, Timestamp, Balance_Historico
                 ws.append_row(row_data)
                 
             print(f"✅ Configuración guardada para: {user_email}")
