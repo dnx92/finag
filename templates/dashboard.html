@@ -181,15 +181,16 @@
 
 {% block scripts %}
 <script>
-    // --- ESTADO GLOBAL ---
+    // --- ESTADO GLOBAL LOCAL ---
     let state = {
         capital: 0,
         rate: 0,
         balance: 0,
         gs: 0,
-        lastTick: performance.now(),
-        isDirty: false
+        lastTick: performance.now()
     };
+
+    const LOCAL_KEY = 'agro_pulse_v4_local';
 
     // --- MOTOR DEL CONTADOR ---
     function startTicker() {
@@ -219,48 +220,47 @@
         if (capDisp) capDisp.innerText = "$" + Math.floor(state.capital).toLocaleString();
     }
 
-    // --- SINCRONIZACIÓN ---
-    async function syncCloud() {
-        setSyncStatus('syncing');
-        try {
-            const res = await fetch('/api/financial-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    capital: state.capital,
-                    rate: state.rate,
-                    balance_historico: state.balance
-                })
-            });
-            if (res.ok) {
-                state.isDirty = false;
-                setSyncStatus('synced');
-                console.log("Sincronización exitosa.");
-            } else {
-                setSyncStatus('error');
-            }
-        } catch (e) {
-            console.error("Error en sync:", e);
-            setSyncStatus('error');
+    // --- PERSISTENCIA LOCAL ---
+    function loadLocal() {
+        const saved = localStorage.getItem(LOCAL_KEY);
+        if (saved) {
+            const data = JSON.parse(saved);
+            const now = Date.now();
+            const elapsedSeconds = (now - data.ts) / 1000;
+
+            state.capital = parseFloat(data.capital) || 0;
+            state.rate = parseFloat(data.rate) || 0;
+            state.gs = (state.capital * (state.rate / 100)) / 31536000;
+
+            // Catch-up: Calcular ganancias mientras estaba en off
+            const accrued = Math.max(0, elapsedSeconds * state.gs);
+            state.balance = (parseFloat(data.balance) || 0) + accrued;
+
+            document.getElementById('inputCapital').value = state.capital;
+            document.getElementById('inputRate').value = state.rate;
         }
+        setLocalStatus('synced');
     }
 
-    function setSyncStatus(status) {
+    function saveLocal() {
+        const data = {
+            capital: state.capital,
+            rate: state.rate,
+            balance: state.balance,
+            ts: Date.now()
+        };
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
+    }
+
+    function setLocalStatus(status) {
         const indicator = document.getElementById('syncIndicator');
         if (!indicator) return;
 
         if (status === 'synced') {
-            indicator.innerHTML = '<i class="fas fa-cloud-check text-success"></i> Sincronizado en la nube';
+            indicator.innerHTML = '<i class="fas fa-check-circle text-success"></i> Almacenado en Navegador';
             indicator.className = 'text-muted small';
-        } else if (status === 'syncing') {
-            indicator.innerHTML = '<i class="fas fa-spinner fa-spin text-info"></i> Sincronizando...';
-            indicator.className = 'text-info small';
-        } else if (status === 'dirty') {
-            indicator.innerHTML = '<i class="fas fa-cloud-upload text-warning"></i> Cambios locales';
-            indicator.className = 'text-warning small';
         } else {
-            indicator.innerHTML = '<i class="fas fa-exclamation-triangle text-danger"></i> Error de sincronización';
-            indicator.className = 'text-danger small';
+            indicator.innerHTML = '<i class="fas fa-save text-warning"></i> Guardando en local...';
         }
     }
 
@@ -277,58 +277,41 @@
             state.capital = cap;
             state.rate = rate;
             state.gs = (cap * (rate / 100)) / 31536000;
-            state.isDirty = true;
 
-            await syncCloud();
+            saveLocal();
 
             const modalEl = document.getElementById('financialConfigModal');
             bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            console.log("Configuración local guardada.");
         } catch (e) {
-            alert("Error al guardar: " + e.message);
+            alert("Error: " + e.message);
         } finally {
             btn.disabled = false;
             btn.innerText = originalText;
+            setLocalStatus('synced');
         }
     }
 
     // --- INICIALIZACIÓN ---
-    document.addEventListener("DOMContentLoaded", async function () {
-        console.log("Dashboard Inicializando v3...");
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("Dashboard Inicializando v4 (PURE LOCAL)...");
 
-        // 1. Vincular Botón Guardar
+        // 1. Vincular Botón Guardar (Sin esperas de red)
         const saveBtn = document.getElementById('btnSaveConfig');
         if (saveBtn) {
             saveBtn.addEventListener('click', saveSettings);
         }
 
-        // 2. Cargar Datos Iniciales
-        try {
-            const res = await fetch('/api/financial-config');
-            if (res.ok) {
-                const config = await res.json();
-                state.capital = parseFloat(config.capital) || 0;
-                state.rate = parseFloat(config.rate) || 0;
-                state.balance = parseFloat(config.current_balance) || 0;
-                state.gs = (state.capital * (state.rate / 100)) / 31536000;
+        // 2. Cargar Datos Locales
+        loadLocal();
 
-                document.getElementById('inputCapital').value = state.capital;
-                document.getElementById('inputRate').value = state.rate;
-            }
-        } catch (e) {
-            console.error("Error cargando config inicial:", e);
-        }
-
-        // 3. Arrancar Componentes de manera independiente
+        // 3. Arrancar Motor
         startTicker();
 
-        // Autosave Local (opcional, simplificado)
-        setInterval(() => {
-            if (state.capital > 0) {
-                localStorage.setItem('agro_pulse_v3', JSON.stringify({ balance: state.balance, ts: Date.now() }));
-            }
-        }, 10000);
+        // Autosave Local cada 5 segs
+        setInterval(saveLocal, 5000);
 
-        // Iniciar Chart.js
+        // Iniciar Chart.js (Independiente)
         try {
             const ctx = document.getElementById('ratesChart')?.getContext('2d');
             if (ctx) {
@@ -339,17 +322,17 @@
             datasets: [{
                 label: 'Tasa Annual (TNA)',
                 data: {{ chart_data.values | safe }},
-        backgroundColor: {{ chart_data.colors | safe }},
+        backgroundColor: { { chart_data.colors | safe } },
         borderWidth: 0
     }]
                     },
         options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }},
+        plugins: { legend: { display: false } },
         scales: {
-            y: { beginAtZero: true, grid: { color: '#444' }},
-            x: { grid: { display: false }}
+            y: { beginAtZero: true, grid: { color: '#444' } },
+            x: { grid: { display: false } }
         }
     }
                 });
